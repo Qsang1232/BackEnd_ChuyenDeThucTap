@@ -8,6 +8,9 @@ import com.example.demo.model.Role;
 import com.example.demo.model.User;
 import com.example.demo.service.AuthenticationService;
 import lombok.RequiredArgsConstructor;
+
+import java.util.Map;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,14 +41,23 @@ public class AuthController {
                 .build());
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthenticationResponse>> login(@RequestBody AuthRequest request) {
-        String token = authenticationService.authenticate(request.getUsername(), request.getPassword());
+    // Bạn cần inject thêm UserRepository vào Controller này
+    private final com.example.demo.repository.UserRepository userRepository; // <--- Thêm dòng này
 
-        return ResponseEntity.ok(ApiResponse.<AuthenticationResponse>builder()
-                .success(true)
-                .message("Đăng nhập thành công")
-                .data(new AuthenticationResponse(token))
-                .build());
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, String>> authenticate(@RequestBody AuthRequest request) {
+        // 1. Xác thực và lấy Token
+        String token = authenticationService.authenticate(request.getUsername(), request.getPassword());
+        
+        // 2. Lấy thông tin User để biết Role
+        var user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 3. Trả về cả Token và Role
+        return ResponseEntity.ok(Map.of(
+            "token", token,
+            "role", user.getRole().name(), // <--- QUAN TRỌNG: Gửi role về
+            "name", user.getUsername()
+        ));
     }
 }

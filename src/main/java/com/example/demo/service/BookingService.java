@@ -78,17 +78,41 @@ public class BookingService {
         return bookingRepository.findAll();
     }
 
-    @Transactional
+ @Transactional
     public void cancelBooking(Long id) {
         User currentUser = getCurrentUser();
         Booking booking = bookingRepository.findById(id)
              .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn với ID: " + id));
 
+        // 1. Kiểm tra xem có phải chủ đơn không
         boolean isOwner = booking.getUser().getId().equals(currentUser.getId());
-        boolean isAdmin = currentUser.getRole().name().equals("ADMIN"); // Giả sử Role là Enum
+        
+        // 2. Kiểm tra xem có phải Admin không (Cách an toàn nhất)
+        String currentRole = String.valueOf(currentUser.getRole()).toUpperCase();
+        
+        // In ra để debug (Nhìn vào cửa sổ chạy Backend sẽ thấy dòng này)
+        System.out.println(">>> DEBUG: User đang hủy là: " + currentUser.getUsername() + " | Role: " + currentRole);
 
+        boolean isAdmin = currentRole.contains("ADMIN"); // Chấp nhận cả "ADMIN" và "ROLE_ADMIN"
+
+        // Nếu không phải Chủ đơn VÀ không phải Admin -> Chặn
         if (!isOwner && !isAdmin) {
-            throw new RuntimeException("Bạn không có quyền hủy đơn này.");
+            throw new RuntimeException("Bạn không có quyền hủy đơn này. (Role của bạn là: " + currentRole + ")");
+        }
+
+        // 3. Logic chặn thời gian:
+        // CHỈ ÁP DỤNG NẾU LÀ USER THƯỜNG (Admin thì bỏ qua bước này)
+        if (!isAdmin) {
+            // Nếu đơn đã Hoàn thành hoặc đã Hủy -> User không được đụng vào nữa
+            if ("CANCELLED".equals(booking.getStatus()) || "COMPLETED".equals(booking.getStatus())) {
+                 throw new RuntimeException("Đơn này không thể hủy được nữa.");
+            }
+            
+            // User thường: Phải hủy trước 2 tiếng
+            // LocalDateTime now = LocalDateTime.now();
+            // if (booking.getStartTime().isBefore(now.plusHours(2))) {
+            //    throw new RuntimeException("Chỉ được hủy trước giờ chơi 2 tiếng!");
+            // }
         }
 
         booking.setStatus("CANCELLED");
@@ -102,7 +126,17 @@ public class BookingService {
         booking.setStatus("CONFIRMED");
         bookingRepository.save(booking);
     }
-
+     // User bấm "Đã chuyển khoản" -> Gọi hàm này
+    @Transactional
+    public void requestPaymentConfirmation(Long id) {
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn"));
+        
+        // Đặt trạng thái mới: PAID_WAITING
+        // Lưu ý: Nếu cột status trong DB ngắn quá thì đặt là "WAITING" thôi
+        booking.setStatus("WAITING"); 
+        bookingRepository.save(booking);
+    }
     @Transactional
     public void confirmBookingPayment(Long id) {
         confirmBooking(id);

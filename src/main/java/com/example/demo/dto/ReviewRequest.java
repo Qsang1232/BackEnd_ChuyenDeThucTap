@@ -4,7 +4,8 @@ import lombok.Data;
 
 @Data
 public class ReviewRequest {
-    private Long courtId;
+    // Sửa courtId thành bookingId
+    private Long bookingId; 
     private int rating;
     private String comment;
 }

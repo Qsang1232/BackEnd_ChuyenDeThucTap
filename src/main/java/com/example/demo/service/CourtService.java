@@ -27,10 +27,15 @@ public class CourtService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sân với ID: " + id));
     }
 
-    // Dùng DTO để tạo mới
+    // THÊM SÂN (Dùng DTO)
     public Court addCourt(CourtRequest request) {
+        // Tìm Category, nếu không có thì lấy mặc định ID=1 (để tránh lỗi)
         Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục ID: " + request.getCategoryId()));
+                .orElse(categoryRepository.findById(1L).orElse(null));
+
+        if (category == null) {
+            throw new RuntimeException("Lỗi: Không tìm thấy Danh mục sân (Category) nào trong DB!");
+        }
 
         Court court = Court.builder()
                 .name(request.getName())
@@ -46,12 +51,16 @@ public class CourtService {
         return courtRepository.save(court);
     }
 
-    // Dùng DTO để cập nhật
+    // CẬP NHẬT SÂN (Dùng DTO)
     public Court updateCourt(Long id, CourtRequest request) {
         Court existingCourt = getCourtById(id);
         
-        Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục ID: " + request.getCategoryId()));
+        // Tìm Category (nếu request gửi lên null thì giữ nguyên cái cũ)
+        if (request.getCategoryId() != null) {
+            Category category = categoryRepository.findById(request.getCategoryId())
+                    .orElse(existingCourt.getCategory());
+            existingCourt.setCategory(category);
+        }
 
         existingCourt.setName(request.getName());
         existingCourt.setDescription(request.getDescription());
@@ -60,23 +69,14 @@ public class CourtService {
         existingCourt.setPricePerHour(request.getPricePerHour());
         existingCourt.setOpeningTime(request.getOpeningTime());
         existingCourt.setClosingTime(request.getClosingTime());
-        existingCourt.setCategory(category);
 
         return courtRepository.save(existingCourt);
     }
 
     public void deleteCourt(Long id) {
-        Court court = getCourtById(id);
-        courtRepository.delete(court);
-    }
-
-    public Court createCourt(Court court) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'createCourt'");
-    }
-
-    public Court updateCourt(Long id, Court courtDetails) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'updateCourt'");
+        if (!courtRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Sân không tồn tại");
+        }
+        courtRepository.deleteById(id);
     }
 }
