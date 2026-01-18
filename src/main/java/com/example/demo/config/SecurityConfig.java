@@ -63,7 +63,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:3001"));
+           configuration.setAllowedOrigins(List.of(
+            "http://localhost:3000",                  // Cho phép máy nhà
+            "https://badminton-sals.vercel.app"       // QUAN TRỌNG: Cho phép link Vercel của bạn
+        ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
