@@ -1,11 +1,15 @@
-FROM maven:3.9-eclipse-temurin-17 AS build
+# 1. Build giai đoạn biên dịch
+FROM maven:3.8.5-openjdk-17 AS build
 WORKDIR /app
 COPY . .
 RUN mvn clean package -DskipTests
 
-FROM eclipse-temurin:17-jre-jammy
+# 2. Build giai đoạn chạy (Run)
+FROM openjdk:17-jdk-slim
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
+
+# Render sẽ cấp port qua biến môi trường PORT, mặc định ta cứ expose 8080
 EXPOSE 8080
-# Giới hạn RAM
-ENTRYPOINT ["java", "-Xmx350m", "-Xms350m", "-jar", "app.jar"]
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
