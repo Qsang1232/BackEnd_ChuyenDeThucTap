@@ -29,114 +29,63 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-            // ❌ Tắt CSRF vì dùng JWT
             .csrf(AbstractHttpConfigurer::disable)
-
-            // ✅ Bật CORS
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-            // ✅ Stateless (JWT)
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-
-            // ✅ Phân quyền API
             .authorizeHttpRequests(auth -> auth
 
-                // ⚠️ BẮT BUỘC: Cho OPTIONS (CORS preflight)
+                // ✅ BẮT BUỘC cho CORS
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // ===== PUBLIC API =====
+                // ===== PUBLIC =====
                 .requestMatchers(
                         "/api/auth/**",
                         "/api/payment/**",
+                        "/api/courts/**",
+                        "/api/categories/**",
+                        "/api/reviews/**",
+                        "/api/bookings/**",
                         "/images/**",
                         "/v3/api-docs/**",
                         "/swagger-ui/**"
                 ).permitAll()
-
-                .requestMatchers(
-                        HttpMethod.GET,
-                        "/api/courts/**",
-                        "/api/categories/**",
-                        "/api/reviews/**",
-                        "/api/bookings/check-availability"
-                ).permitAll()
-
-                // ===== ADMIN =====
+                  // ADMIN & USER routes (Giữ nguyên code của bạn)
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/bookings/all").hasRole("ADMIN")
                 .requestMatchers("/api/bookings/*/confirm").hasRole("ADMIN")
-
-                .requestMatchers(
-                        HttpMethod.POST,
-                        "/api/courts/**",
-                        "/api/categories/**"
-                ).hasRole("ADMIN")
-
-                .requestMatchers(
-                        HttpMethod.PUT,
-                        "/api/courts/**",
-                        "/api/categories/**"
-                ).hasRole("ADMIN")
-
-                .requestMatchers(
-                        HttpMethod.DELETE,
-                        "/api/courts/**",
-                        "/api/categories/**"
-                ).hasRole("ADMIN")
-
-                // ===== USER / AUTH =====
                 .requestMatchers("/api/bookings/*/cancel").hasAnyRole("ADMIN", "USER")
-                .requestMatchers("/api/bookings/**").authenticated()
-                .requestMatchers("/api/reviews/**").authenticated()
-                .requestMatchers("/api/users/**").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/courts/**", "/api/categories/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/courts/**", "/api/categories/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/courts/**", "/api/categories/**").hasRole("ADMIN")
 
-                // ===== DEFAULT =====
+                .requestMatchers("/api/bookings/**").authenticated()
+                .requestMatchers("/api/reviews").authenticated()
+                .requestMatchers("/api/users/**").authenticated()
+                // ===== KHÁC =====
                 .anyRequest().authenticated()
             )
-
-            // ✅ Authentication provider
             .authenticationProvider(authenticationProvider)
-
-            // ✅ JWT filter
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    // =========================
-    // ===== CORS CONFIG =======
-    // =========================
+    // ===== CORS =====
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
 
-        CorsConfiguration configuration = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:3000"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("Authorization"));
+        config.setAllowCredentials(true);
 
-        // ✅ Local + Vercel (kể cả preview)
-        configuration.setAllowedOriginPatterns(List.of(
-                "http://localhost:3000",
-                "https://*.vercel.app"
-        ));
-
-        configuration.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"
-        ));
-
-        configuration.setAllowedHeaders(List.of(
-                "Authorization",
-                "Content-Type",
-                "x-auth-token"
-        ));
-
-        // 👇 Để frontend đọc được Authorization header
-        configuration.setExposedHeaders(List.of("Authorization"));
-
-        // ⚠️ Bắt buộc TRUE khi dùng JWT + domain cố định
-        configuration.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
 
         return source;
     }
