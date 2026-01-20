@@ -4,13 +4,10 @@ import com.example.demo.dto.ApiResponse;
 import com.example.demo.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.view.RedirectView; // <--- Import quan trọng
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.view.RedirectView;
 
 @RestController
 @RequestMapping("/api/payment")
@@ -20,11 +17,19 @@ public class PaymentController {
 
     private final BookingService bookingService;
 
-    // 1. API TẠO URL THANH TOÁN (Frontend gọi cái này để lấy link)
+    // Lấy giá trị từ application.properties
+    @Value("${app.backend.url}")
+    private String backendUrl;
+
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
+
+    // 1. API TẠO URL THANH TOÁN
     @GetMapping("/create-payment-url")
     public ResponseEntity<ApiResponse<String>> createPaymentUrl(@RequestParam Long bookingId) {
-        // Tạo link giả lập gọi lại chính server mình
-        String mockUrl = "http://localhost:8080/api/payment/vnpay-return?vnp_TxnRef=" + bookingId + "&vnp_ResponseCode=00";
+        // SỬA: Dùng backendUrl thay vì localhost cứng
+        // Link này sẽ là: https://badminton-api.onrender.com/api/payment/vnpay-return...
+        String mockUrl = backendUrl + "/api/payment/vnpay-return?vnp_TxnRef=" + bookingId + "&vnp_ResponseCode=00";
 
         return ResponseEntity.ok(ApiResponse.<String>builder()
                 .success(true)
@@ -34,7 +39,6 @@ public class PaymentController {
     }
 
     // 2. API XỬ LÝ KẾT QUẢ VÀ CHUYỂN HƯỚNG
-    // Thay vì trả về JSON, ta dùng RedirectView để đẩy người dùng về lại Frontend
     @GetMapping("/vnpay-return")
     public RedirectView vnpayReturn(
             @RequestParam("vnp_TxnRef") String bookingIdStr,
@@ -49,21 +53,22 @@ public class PaymentController {
                 // Cập nhật trạng thái đơn hàng trong DB
                 bookingService.confirmBookingPayment(bookingId);
                 
-                // Chuyển hướng về trang Lịch sử của React (kèm tham số success)
-                return new RedirectView("http://localhost:3000/profile?payment=success");
+                // SỬA: Chuyển hướng về trang Frontend trên Vercel
+                return new RedirectView(frontendUrl + "/profile?payment=success");
                 
             } catch (Exception e) {
                 log.error("Lỗi xử lý thanh toán: ", e);
-                return new RedirectView("http://localhost:3000/profile?payment=error");
+                // SỬA: Chuyển hướng về trang lỗi Frontend
+                return new RedirectView(frontendUrl + "/profile?payment=error");
             }
         } else {
-            // Thanh toán thất bại -> Quay về báo lỗi
-            return new RedirectView("http://localhost:3000/profile?payment=failed");
+            // Thanh toán thất bại -> Quay về báo lỗi Frontend
+            return new RedirectView(frontendUrl + "/profile?payment=failed");
         }
     }
+
     // 3. API XÁC NHẬN CHUYỂN KHOẢN (Cho Modal QR)
- 
-   @PostMapping("/confirm-transfer")
+    @PostMapping("/confirm-transfer")
     public ResponseEntity<ApiResponse<String>> confirmTransfer(@RequestParam Long bookingId) {
         // Chuyển sang trạng thái WAITING (Chờ duyệt)
         bookingService.requestPaymentConfirmation(bookingId);

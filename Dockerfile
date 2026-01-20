@@ -1,13 +1,10 @@
-# Stage 1: Build
-FROM maven:3.9-eclipse-temurin-17 AS build
-WORKDIR /app
+# Build stage
+FROM maven:3.8.5-openjdk-17 AS build
 COPY . .
 RUN mvn clean package -DskipTests
 
-# Stage 2: Run - BẮT BUỘC PHẢI LÀ JAMMY
-FROM eclipse-temurin:17-jdk-jammy
-
-WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
+# Run stage
+FROM openjdk:17.0.1-jdk-slim
+COPY --from=build /target/*.jar demo.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-Xms350m", "-Xmx350m", "-jar", "app.jar"]
+ENTRYPOINT ["java","-jar","demo.jar"]
